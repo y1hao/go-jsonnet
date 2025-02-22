@@ -81,7 +81,6 @@ builds:
     main: ./cmd/jsonnet-deps
     binary: jsonnet-deps
 
-
 archives:
   - name_template: >-
       {{- .ProjectName }}_
@@ -93,6 +92,10 @@ archives:
 
 checksum:
   name_template: "checksums.txt"
+
+release:
+  draft: true
+  skip_upload: false
 
 nfpms:
   - id: jsonnet
@@ -145,7 +148,7 @@ nfpms:
           # See: https://packages.ubuntu.com/jsonnet
           - jsonnet-lint
   - id: jsonnet-deps
-    package_name:  jsonnet-deps-go
+    package_name: jsonnet-deps-go
     builds:
       - jsonnet-deps
     homepage: https://github.com/google/go-jsonnet
