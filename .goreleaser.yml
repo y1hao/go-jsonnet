@@ -96,7 +96,7 @@ checksum:
 release:
   draft: true
   skip_upload: false
-  target_commitish: "{{ .Env.PROPOSED_VERSION }}"
+  target_commitish: "{{ .Env.FROM_COMMITISH }}"
 
 nfpms:
   - id: jsonnet
