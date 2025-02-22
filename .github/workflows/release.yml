@@ -4,9 +4,12 @@
 name: goreleaser
 
 on:
-  push:
-    tags:
-      - "*"
+  workflow_dispatch:
+    inputs:
+      prerelease:
+        description: If set, publish this as a release candidate / prerelease version.
+        type: boolean
+        required: true
 
 jobs:
   release:
