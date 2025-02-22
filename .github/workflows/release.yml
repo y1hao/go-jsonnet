@@ -9,7 +9,8 @@ on:
 jobs:
   release:
     permissions:
-      contents: read
+      # Create a draft GitHub release and attach the built artifacts.
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
