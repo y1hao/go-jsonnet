@@ -5,28 +5,35 @@ name: goreleaser
 
 on:
   workflow_dispatch:
-    inputs:
-      prerelease:
-        description: If set, publish this as a release candidate / prerelease version.
-        type: boolean
-        required: true
 
 jobs:
   release:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # Needed otherwise we get a shallow checkout by default.
+          # We need more so that goreleaser can find the previous version.
           fetch-depth: 0
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.20
+          go-version: "1.20"
+      - name: Extract version
+        id: extract_version
+        run: |
+          CMD_VERSION="$(go run ./cmd/jsonnet --version | grep -oe 'v[0-9][0-9a-z.-]*$')" &&
+          printf "Extracted jsonnet version: %s\n" "${CMD_VERSION}" &&
+          git tag "${CMD_VERSION}" &&
+          printf "jsonnet_version='%s'\n" "${CMD_VERSION}" >> "${GITHUB_OUTPUT}"
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@90a3faa9d0182683851fbfa97ca1a2cb983bfca3 # v6.2.1
+        env:
+          PROPOSED_VERSION: "${{ steps.extract_version.outputs.jsonnet_version }}"
+          GITHUB_TOKEN: "${{ github.token }}"
         with:
           version: latest
-          args: release --rm-dist
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          args: release --clean --draft
