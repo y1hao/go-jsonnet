@@ -29,6 +29,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - uses: actions/setup-python@v5
         with:
@@ -50,22 +52,29 @@ jobs:
     name: Build wheels on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        #os: [ubuntu-22.04, windows-latest, macos-latest]
-        os: [ubuntu-22.04, windows-latest]
+        os: [ubuntu-22.04]
 
     permissions:
       contents: read
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
 
       - name: Build wheels
         uses: pypa/cibuildwheel@ee63bf16da6cddfb925f542f2c7b59ad50e93969 # v2.22.0
         env:
-          # Skip PyPy, 32-bit Windows, 32-bit Linux, and CPython before 3.9.
+          # Skip PyPy, 32-bit Windows, 32-bit Linux, musllinux and CPython before 3.9.
           # See https://cibuildwheel.readthedocs.io/en/stable/options/#examples_1
-          CIBW_SKIP: "*-win32 pp* *-manylinux_i686 *-musllinux_i686 cp36-* cp37-* cp38-*"
+          CIBW_SKIP: "*-win32 pp* *-manylinux_i686 *-musllinux* cp36-* cp37-* cp38-*"
+          CIBW_BEFORE_ALL_LINUX: >
+            bash {package}/.github/workflows/install-go.sh &&
+            export PATH="$PATH":/usr/local/go/bin &&
+            command -v go > /dev/null
+          CIBW_ENVIRONMENT: PATH=$PATH:/usr/local/go/bin
           CIBW_TEST_COMMAND: >
             python {package}/python/_jsonnet_test.py
 
