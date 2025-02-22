@@ -6,6 +6,19 @@ load(
 # NB: update_cpp_jsonnet.sh looks for these.
 CPP_JSONNET_SHA256 = "e7d14d8ad65dc334b9a9f3bd1c542a82b3b80029860a8d78fd829b23d0e9845b"
 CPP_JSONNET_GITHASH = "5a4e8e34cc1fe841bdebb983646b9b9ae8fa8ca4"
+CPP_JSONNET_RELEASE_VERSION = ""
+
+CPP_JSONNET_STRIP_PREFIX = (
+    "jsonnet-" + (
+        CPP_JSONNET_RELEASE_VERSION if CPP_JSONNET_RELEASE_VERSION else CPP_JSONNET_GITHASH
+    )
+)
+CPP_JSONNET_URL = (
+    "https://github.com/google/jsonnet/releases/download/%s/jsonnet-%s.tar.gz" % (
+        CPP_JSONNET_RELEASE_VERSION,
+        CPP_JSONNET_RELEASE_VERSION,
+    ) if CPP_JSONNET_RELEASE_VERSION else "https://github.com/google/jsonnet/archive/%s.tar.gz" % CPP_JSONNET_GITHASH
+)
 
 def jsonnet_go_repositories():
     http_archive(
@@ -28,6 +41,6 @@ def jsonnet_go_repositories():
     http_archive(
         name = "cpp_jsonnet",
         sha256 = CPP_JSONNET_SHA256,
-        strip_prefix = "jsonnet-%s" % CPP_JSONNET_GITHASH,
-        urls = ["https://github.com/google/jsonnet/archive/%s.tar.gz" % CPP_JSONNET_GITHASH],
+        strip_prefix = CPP_JSONNET_STRIP_PREFIX,
+        urls = [CPP_JSONNET_URL],
     )
