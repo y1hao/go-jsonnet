@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - master
+      - prepare-release
 jobs:
   test:
     name: Test go${{ matrix.goVersion}}.x ${{ matrix.goArch }}
