@@ -41,7 +41,7 @@ def get_version():
 class BuildJsonnetExt(BuildExt):
     def run(self):
         p = Popen(
-            ["go", "build", "-o", "libgojsonnet.a", "-buildmode=c-archive"],
+            ["go", "build", "-x", "-o", "libgojsonnet.a", "-buildmode=c-archive"],
             cwd=LIB_DIR,
             stdout=PIPE,
         )
