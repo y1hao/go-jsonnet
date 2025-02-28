@@ -2293,21 +2293,30 @@ func builtinMinArray(i *interpreter, arguments []value) (value, error) {
 	if num == 0 {
 		return nil, i.Error("Expected at least one element in array. Got none")
 	}
-	minVal, err := keyF.call(i, args(arr.elements[0]))
+	minVal, err := arr.elements[0].getValue(i)
+	if err != nil {
+		return nil, err
+	}
+	minValKey, err := keyF.call(i, args(arr.elements[0]))
 	if err != nil {
 		return nil, err
 	}
 	for index := 1; index < num; index++ {
-		current, err := keyF.call(i, args(arr.elements[index]))
+		current, err := arr.elements[index].getValue(i)
 		if err != nil {
 			return nil, err
 		}
-		cmp, err := valueCmp(i, minVal, current)
+		currentKey, err := keyF.call(i, args(arr.elements[index]))
+		if err != nil {
+			return nil, err
+		}
+		cmp, err := valueCmp(i, minValKey, currentKey)
 		if err != nil {
 			return nil, err
 		}
 		if cmp > 0 {
 			minVal = current
+			minValKey = currentKey
 		}
 	}
 	return minVal, nil
@@ -2329,21 +2338,30 @@ func builtinMaxArray(i *interpreter, arguments []value) (value, error) {
 	if num == 0 {
 		return nil, i.Error("Expected at least one element in array. Got none")
 	}
-	maxVal, err := keyF.call(i, args(arr.elements[0]))
+	maxVal, err := arr.elements[0].getValue(i)
+	if err != nil {
+		return nil, err
+	}
+	maxValKey, err := keyF.call(i, args(arr.elements[0]))
 	if err != nil {
 		return nil, err
 	}
 	for index := 1; index < num; index++ {
-		current, err := keyF.call(i, args(arr.elements[index]))
+		current, err := arr.elements[index].getValue(i)
 		if err != nil {
 			return nil, err
 		}
-		cmp, err := valueCmp(i, maxVal, current)
+		currentKey, err := keyF.call(i, args(arr.elements[index]))
+		if err != nil {
+			return nil, err
+		}
+		cmp, err := valueCmp(i, maxValKey, currentKey)
 		if err != nil {
 			return nil, err
 		}
 		if cmp < 0 {
 			maxVal = current
+			maxValKey = currentKey
 		}
 	}
 	return maxVal, nil
