@@ -3,13 +3,14 @@ package formatter
 import (
 	"flag"
 	"fmt"
-	"github.com/google/go-jsonnet/internal/testutils"
 	"io"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/google/go-jsonnet/internal/testutils"
 )
 
 var update = flag.Bool("update", false, "update .golden files")
@@ -42,7 +43,7 @@ func runTest(t *testing.T, test *formatterTest, changedGoldensList *ChangedGolde
 
 	input := read(test.input)
 	var outBuilder strings.Builder
-	output, err := Format(test.name, string(input), Options{})
+	output, err := Format(test.name, string(input), DefaultOptions())
 	if err != nil {
 		errWriter := ErrorWriter{
 			Writer:      &outBuilder,
