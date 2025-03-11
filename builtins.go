@@ -2280,6 +2280,7 @@ func builtinExtVar(i *interpreter, name value) (value, error) {
 func builtinMinArray(i *interpreter, arguments []value) (value, error) {
 	arrv := arguments[0]
 	keyFv := arguments[1]
+	onEmpty := arguments[2]
 
 	arr, err := i.getArray(arrv)
 	if err != nil {
@@ -2291,7 +2292,11 @@ func builtinMinArray(i *interpreter, arguments []value) (value, error) {
 	}
 	num := arr.length()
 	if num == 0 {
-		return nil, i.Error("Expected at least one element in array. Got none")
+		if onEmpty == nil {
+			return nil, i.Error("Expected at least one element in array. Got none")
+		} else {
+			return onEmpty, nil
+		}
 	}
 	minVal, err := arr.elements[0].getValue(i)
 	if err != nil {
@@ -2325,6 +2330,7 @@ func builtinMinArray(i *interpreter, arguments []value) (value, error) {
 func builtinMaxArray(i *interpreter, arguments []value) (value, error) {
 	arrv := arguments[0]
 	keyFv := arguments[1]
+	onEmpty := arguments[2]
 
 	arr, err := i.getArray(arrv)
 	if err != nil {
@@ -2336,7 +2342,11 @@ func builtinMaxArray(i *interpreter, arguments []value) (value, error) {
 	}
 	num := arr.length()
 	if num == 0 {
-		return nil, i.Error("Expected at least one element in array. Got none")
+		if onEmpty == nil {
+			return nil, i.Error("Expected at least one element in array. Got none")
+		} else {
+			return onEmpty, nil
+		}
 	}
 	maxVal, err := arr.elements[0].getValue(i)
 	if err != nil {
@@ -2533,7 +2543,7 @@ func flattenArgs(args callArguments, params []namedParameter, defaults []value) 
 	}
 	// Bind defaults for unsatisfied named parameters
 	for i := range params {
-		if flatArgs[i] == nil {
+		if flatArgs[i] == nil && defaults[i] != nil {
 			flatArgs[i] = readyThunk(defaults[i])
 		}
 	}
@@ -2551,9 +2561,13 @@ type unaryBuiltin struct {
 func (b *unaryBuiltin) evalCall(args callArguments, i *interpreter) (value, error) {
 	flatArgs := flattenArgs(args, b.parameters(), []value{})
 
-	x, err := flatArgs[0].getValue(i)
-	if err != nil {
-		return nil, err
+	var x value
+	var err error
+	if flatArgs[0] != nil {
+		x, err = flatArgs[0].getValue(i)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return b.function(i, x)
 }
@@ -2581,13 +2595,19 @@ type binaryBuiltin struct {
 func (b *binaryBuiltin) evalCall(args callArguments, i *interpreter) (value, error) {
 	flatArgs := flattenArgs(args, b.parameters(), []value{})
 
-	x, err := flatArgs[0].getValue(i)
-	if err != nil {
-		return nil, err
+	var err error
+	var x, y value
+	if flatArgs[0] != nil {
+		x, err = flatArgs[0].getValue(i)
+		if err != nil {
+			return nil, err
+		}
 	}
-	y, err := flatArgs[1].getValue(i)
-	if err != nil {
-		return nil, err
+	if flatArgs[1] != nil {
+		y, err = flatArgs[1].getValue(i)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return b.function(i, x, y)
 }
@@ -2615,17 +2635,25 @@ type ternaryBuiltin struct {
 func (b *ternaryBuiltin) evalCall(args callArguments, i *interpreter) (value, error) {
 	flatArgs := flattenArgs(args, b.parameters(), []value{})
 
-	x, err := flatArgs[0].getValue(i)
-	if err != nil {
-		return nil, err
+	var err error
+	var x, y, z value
+	if flatArgs[0] != nil {
+		x, err = flatArgs[0].getValue(i)
+		if err != nil {
+			return nil, err
+		}
 	}
-	y, err := flatArgs[1].getValue(i)
-	if err != nil {
-		return nil, err
+	if flatArgs[1] != nil {
+		y, err = flatArgs[1].getValue(i)
+		if err != nil {
+			return nil, err
+		}
 	}
-	z, err := flatArgs[2].getValue(i)
-	if err != nil {
-		return nil, err
+	if flatArgs[2] != nil {
+		z, err = flatArgs[2].getValue(i)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return b.function(i, x, y, z)
 }
@@ -2647,8 +2675,9 @@ type generalBuiltinFunc func(*interpreter, []value) (value, error)
 type generalBuiltinParameter struct {
 	// Note that the defaults are passed as values rather than AST nodes like in Parameters.
 	// This spares us unnecessary evaluation.
-	defaultValue value
-	name         ast.Identifier
+	defaultValue    value
+	name            ast.Identifier
+	nonValueDefault bool
 }
 
 // generalBuiltin covers cases that other builtin structures do not,
@@ -2665,7 +2694,7 @@ func (b *generalBuiltin) parameters() []namedParameter {
 	ret := make([]namedParameter, len(b.params))
 	for i := range ret {
 		ret[i].name = b.params[i].name
-		if b.params[i].defaultValue != nil {
+		if b.params[i].defaultValue != nil || b.params[i].nonValueDefault {
 			// This is not actually used because the defaultValue is used instead.
 			// The only reason we don't leave it nil is because the checkArguments
 			// function uses the non-nil status to indicate that the parameter
@@ -2693,9 +2722,11 @@ func (b *generalBuiltin) evalCall(args callArguments, i *interpreter) (value, er
 	values := make([]value, len(flatArgs))
 	for j := 0; j < len(values); j++ {
 		var err error
-		values[j], err = flatArgs[j].getValue(i)
-		if err != nil {
-			return nil, err
+		if flatArgs[j] != nil {
+			values[j], err = flatArgs[j].getValue(i)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return b.function(i, values)
@@ -2840,8 +2871,8 @@ var funcBuiltins = buildBuiltinMap([]builtin{
 	&unaryBuiltin{name: "encodeUTF8", function: builtinEncodeUTF8, params: ast.Identifiers{"str"}},
 	&unaryBuiltin{name: "decodeUTF8", function: builtinDecodeUTF8, params: ast.Identifiers{"arr"}},
 	&generalBuiltin{name: "sort", function: builtinSort, params: []generalBuiltinParameter{{name: "arr"}, {name: "keyF", defaultValue: functionID}}},
-	&generalBuiltin{name: "minArray", function: builtinMinArray, params: []generalBuiltinParameter{{name: "arr"}, {name: "keyF", defaultValue: functionID}}},
-	&generalBuiltin{name: "maxArray", function: builtinMaxArray, params: []generalBuiltinParameter{{name: "arr"}, {name: "keyF", defaultValue: functionID}}},
+	&generalBuiltin{name: "minArray", function: builtinMinArray, params: []generalBuiltinParameter{{name: "arr"}, {name: "keyF", defaultValue: functionID}, {name: "onEmpty", nonValueDefault: true}}},
+	&generalBuiltin{name: "maxArray", function: builtinMaxArray, params: []generalBuiltinParameter{{name: "arr"}, {name: "keyF", defaultValue: functionID}, {name: "onEmpty", nonValueDefault: true}}},
 	&unaryBuiltin{name: "native", function: builtinNative, params: ast.Identifiers{"x"}},
 	&unaryBuiltin{name: "sum", function: builtinSum, params: ast.Identifiers{"arr"}},
 	&unaryBuiltin{name: "avg", function: builtinAvg, params: ast.Identifiers{"arr"}},
