@@ -199,6 +199,7 @@ func prepareStdlib(g *typeGraph) {
 		"mod":              g.newSimpleFuncType(stringOrNumber, "a", "b"),
 		"native":           g.newSimpleFuncType(anyFunctionType, "x"),
 		"$objectFlatMerge": g.newSimpleFuncType(anyObjectType, "x"),
+		"$flatMapArray":    g.newSimpleFuncType(anyArrayType, "func", "arr"),
 
 		// Boolean
 

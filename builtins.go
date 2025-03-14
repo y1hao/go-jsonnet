@@ -345,6 +345,19 @@ func builtinFlatMap(i *interpreter, funcv, arrv value) (value, error) {
 	}
 }
 
+// builtinFlatMapArray is like builtinFlatMap, but only accepts array as the
+// arrv value. Desugared comprehensions contain a call to this function, rather
+// than builtinFlatMap, so that a better error message is printed when the
+// comprehension would iterate over a non-array.
+func builtinFlatMapArray(i *interpreter, funcv, arrv value) (value, error) {
+	switch arrv := arrv.(type) {
+	case *valueArray:
+		return builtinFlatMap(i, funcv, arrv)
+	default:
+		return nil, i.typeErrorSpecific(arrv, &valueArray{})
+	}
+}
+
 func joinArrays(i *interpreter, sep *valueArray, arr *valueArray) (value, error) {
 	result := make([]*cachedThunk, 0, arr.length())
 	first := true
@@ -2880,4 +2893,5 @@ var funcBuiltins = buildBuiltinMap([]builtin{
 
 	// internal
 	&unaryBuiltin{name: "$objectFlatMerge", function: builtinUglyObjectFlatMerge, params: ast.Identifiers{"x"}},
+	&binaryBuiltin{name: "$flatMapArray", function: builtinFlatMapArray, params: ast.Identifiers{"func", "arr"}},
 })
