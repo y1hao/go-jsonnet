@@ -64,6 +64,25 @@ jobs:
       - run: bazelisk build --lockfile_mode=error //...
       - run: bazelisk test --lockfile_mode=error //...
 
+  bazel_module_example:
+    name: bazel module example test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/bazel
+            ~/.cache/bazelisk
+          key: ${{ runner.os }}-bazel-cache
+      - run: |
+          # We leave the lockfile off for this. lockfile_mode=off is also
+          # set in the .bazelrc in the examples/bazel/ directory.
+          # The example directly references the local jsonnet_go module from
+          # its parent directory, so the hash will change on almost every
+          # commit anyway.
+          cd examples/bazel && bazelisk build --lockfile_mode=off //...
+
   all:
     name: Check all
     runs-on: ubuntu-latest
