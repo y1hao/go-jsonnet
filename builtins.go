@@ -2264,7 +2264,9 @@ func builtinManifestYamlDoc(i *interpreter, arguments []value) (value, error) {
 				} else {
 					buf.WriteByte(' ')
 				}
-				aux(fieldValue, buf, cindent)
+				if err := aux(fieldValue, buf, cindent); err != nil {
+					return err
+				}
 				cindent = prevIndent
 			}
 		}
