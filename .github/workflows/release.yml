@@ -40,6 +40,9 @@ jobs:
           args: release --clean --draft
 
   create_source_archive:
+    needs:
+      # Need to wait for goreleaser to create the draft release otherwise we end up with _two_ draft releases!
+      - release
     permissions:
       contents: write
     runs-on: ubuntu-22.04
