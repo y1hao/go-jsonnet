@@ -2,7 +2,7 @@ module example/go-jsonnet-using-bazel
 
 go 1.23.7
 
-require github.com/google/go-jsonnet v0.21.0-rc2
+require github.com/google/go-jsonnet v0.21.0
 
 require (
 	golang.org/x/crypto v0.36.0 // indirect
