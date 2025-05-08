@@ -119,6 +119,8 @@ Additionally if any files were moved around, see the section [Keeping the Bazel 
 
 ## Building libjsonnet.wasm
 
+The [WASM](https://webassembly.org/) build can be used to embed go-jsonnet for use (client side) in the web browser. This is used for the live code snippets on https://jsonnet.org/
+
 ```bash
 GOOS=js GOARCH=wasm go build -o libjsonnet.wasm ./cmd/wasm 
 ```
