@@ -52,8 +52,9 @@
             {{end}}
         {{end}}
 
+        console.log(JSON.stringify(traceInfo));
+
         const traceContainer = document.getElementById("trace-container");
-        traceContainer.textContent = JSON.stringify(traceInfo);
 
         const editor = ace.edit("editor");
         editor.setTheme("ace/theme/github");
@@ -64,7 +65,20 @@
         })
         editor.session.selection.on("changeCursor", function(e) {
             const row = editor.selection.getCursor().row;
-            traceContainer.textContent = JSON.stringify(traceInfo[row]);
+            console.log(row)
+            const trace = traceInfo[row];
+            console.log(JSON.stringify(trace))
+            let content = "";
+            if (trace !== undefined) {
+                for (const item of trace) {
+                    content = `${item.filename}:${item.startLine}`;
+                    if (item.startLine !== item.endLine) {
+                        content += `-${item.endLine}`
+                    }
+                    content += "\n"
+                }
+            }
+            traceContainer.textContent = content;
         })
     </script>
 </body>
