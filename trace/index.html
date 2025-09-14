@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jsonnet tracer</title>
+    <style>
+        body {
+            padding: 0;
+        }
+        
+        #container {
+            padding: 2rem;
+            width: 80vw;
+            min-width: 800px;
+            display: flex;
+        }
+
+
+
+        #editor {
+            position: relative;
+            width: 40vw;
+            height: 80vh;
+        }
+
+        #trace-container {
+
+        }
+
+    </style>
+</head>
+<body>
+    <h1>{{- .Filename -}}</h1>
+    <div id="container">
+        <div id="editor">{{- .Result -}}</div>
+        <div id="trace-container">
+
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.14.0/ace.js"></script>
+    <script>
+        const traceInfo = new Map();
+        {{range $key, $value := .Frames}}
+        traceInfo[{{$key}}] = [];
+            {{range $i, $frame := $value}}
+            traceInfo[{{$key}}][{{$i}}] = { 
+                filename: "{{$frame.Filename}}", 
+                startLine: {{$frame.StartLine}}, 
+                endLine: {{$frame.EndLine}},
+            };
+            {{end}}
+        {{end}}
+
+        const traceContainer = document.getElementById("trace-container");
+        traceContainer.textContent = JSON.stringify(traceInfo);
+
+        const editor = ace.edit("editor");
+        editor.setTheme("ace/theme/github");
+        editor.session.setMode("ace/mode/json");
+        editor.setOptions({
+            "selectionStyle": "line",
+            "readOnly": "true",
+        })
+        editor.session.selection.on("changeCursor", function(e) {
+            const row = editor.selection.getCursor().row;
+            traceContainer.textContent = JSON.stringify(traceInfo[row]);
+        })
+    </script>
+</body>
+</html>
