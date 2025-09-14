@@ -1,6 +1,6 @@
-package trace
+package jsonnet
 
-type TraceFrame struct {
+type TraceItem struct {
 	Filename  string
 	StartLine int
 	EndLine   int

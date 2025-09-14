@@ -6,6 +6,8 @@ import (
 	"log"
 	"net/http"
 	"text/template"
+
+	"github.com/google/go-jsonnet"
 )
 
 //go:embed index.html
@@ -14,10 +16,10 @@ var templ string
 type Server struct {
 	filename string
 	result   string
-	frames   map[int][]*TraceFrame
+	frames   map[int][]*jsonnet.TraceItem
 }
 
-func NewServer(filename string, result string, frames map[int][]*TraceFrame) *Server {
+func NewServer(filename string, result string, frames map[int][]*jsonnet.TraceItem) *Server {
 	return &Server{
 		filename: filename,
 		result:   result,
@@ -34,7 +36,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		Filename string
 		Result   string
-		Frames   map[int][]*TraceFrame
+		Frames   map[int][]*jsonnet.TraceItem
 	}{
 		Filename: s.filename,
 		Result:   s.result,

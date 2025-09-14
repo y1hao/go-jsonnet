@@ -43,11 +43,11 @@
         const traceInfo = new Map();
         {{range $key, $value := .Frames}}
         traceInfo[{{$key}}] = [];
-            {{range $i, $frame := $value}}
+            {{range $i, $item := $value}}
             traceInfo[{{$key}}][{{$i}}] = { 
-                filename: "{{$frame.Filename}}", 
-                startLine: {{$frame.StartLine}}, 
-                endLine: {{$frame.EndLine}},
+                filename: "{{$item.Filename}}", 
+                startLine: {{$item.StartLine}}, 
+                endLine: {{$item.EndLine}},
             };
             {{end}}
         {{end}}

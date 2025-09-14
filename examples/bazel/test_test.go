@@ -8,8 +8,8 @@ import (
 )
 
 func TestThings(t *testing.T) {
-	vm := gjs.MakeVM()
-	out, err := vm.EvaluateFile("example.jsonnet")
+	vm := gjs.MakeTracingVM()
+	out, err := vm.EvaluateFileWithTrace("example.jsonnet", map[int][]*gjs.TraceItem{})
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	} else {
