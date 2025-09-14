@@ -100,7 +100,9 @@ func MakeTracingVM() *VM {
 		},
 		post: func(i *interpreter, a ast.Node, v value, err error) {
 			if v != nil {
-				v.RecordStack(vm.stack)
+				cp := make([]ast.Node, len(vm.stack))
+				copy(cp, vm.stack)
+				v.RecordStack(cp)
 			}
 			vm.stack = vm.stack[:len(vm.stack)-1]
 		},

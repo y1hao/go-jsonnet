@@ -9,7 +9,7 @@ import (
 
 func TestThings(t *testing.T) {
 	vm := gjs.MakeTracingVM()
-	out, err := vm.EvaluateFileWithTrace("testdata/comprehension.jsonnet", map[int][]*gjs.TraceItem{})
+	out, err := vm.EvaluateFileWithTrace("testdata/demo/sours-oo.jsonnet", map[int][]*gjs.TraceItem{})
 	if err != nil {
 		fmt.Printf("%v\n", err)
 	} else {

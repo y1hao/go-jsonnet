@@ -1028,6 +1028,9 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLin
 
 func (i *interpreter) output(v value, buf *bytes.Buffer, trace map[int][]*TraceItem, index int) {
 	stk := v.Stack()
+	if len(stk) == 0 {
+		return
+	}
 	node := stk[len(stk)-1]
 	var items []*TraceItem
 	for i := len(stk) - 1; i >= 0; i-- {
