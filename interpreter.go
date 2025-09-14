@@ -883,7 +883,7 @@ func serializeJSON(v interface{}, multiline bool, indent string, buf *bytes.Buff
 	}
 }
 
-func (i *interpreter) manifestWithTrace(v interface{}, indent string, index int, buf *bytes.Buffer, trace map[int][]*TraceItem) (int, error) {
+func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLine int, buf *bytes.Buffer, trace map[int][]*TraceItem) (int, error) {
 	if i.stack.currentTrace == (traceElement{}) {
 		panic("manifesting JSON with empty traceElement")
 	}
@@ -891,7 +891,7 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, index int,
 	// Fresh frame for better stack traces
 	err := i.newCall(environment{}, false)
 	if err != nil {
-		return index, err
+		return currentLine, err
 	}
 	stackSize := len(i.stack.stack)
 	defer i.stack.popIfExists(stackSize)
@@ -904,29 +904,29 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, index int,
 		} else {
 			buf.WriteString("false")
 		}
-		i.output(v, buf, trace, index)
-		return index, nil
+		i.output(v, buf, trace, currentLine)
+		return currentLine, nil
 
 	case *valueFunction:
-		return index, makeRuntimeError("couldn't manifest function as JSON", i.getCurrentStackTrace())
+		return currentLine, makeRuntimeError("couldn't manifest function as JSON", i.getCurrentStackTrace())
 
 	case *valueNumber:
 		buf.WriteString(unparseNumber(v.value))
-		i.output(v, buf, trace, index)
-		return index, nil
+		i.output(v, buf, trace, currentLine)
+		return currentLine, nil
 
 	case valueString:
 		buf.WriteString(unparseString(v.getGoString()))
-		i.output(v, buf, trace, index)
-		return index, nil
+		i.output(v, buf, trace, currentLine)
+		return currentLine, nil
 
 	case *valueNull:
 		buf.WriteString("null")
-		i.output(v, buf, trace, index)
-		return index, nil
+		i.output(v, buf, trace, currentLine)
+		return currentLine, nil
 
 	case *valueArray:
-		i.output(v, buf, trace, index)
+		i.output(v, buf, trace, currentLine)
 		if len(v.elements) == 0 {
 			buf.WriteString("[ ]")
 		} else {
@@ -944,25 +944,24 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, index int,
 				}
 
 				buf.WriteString(prefix)
-				index++
+				currentLine++
 				buf.WriteString(indent2)
-				index, err = i.manifestWithTrace(elVal, indent2, index, buf, trace)
+				currentLine, err = i.manifestWithTrace(elVal, indent2, currentLine, buf, trace)
 				prefix = ",\n"
 				if err != nil {
 					i.stack.clearCurrentTrace()
-					return index, err
+					return currentLine, err
 				}
 				i.stack.clearCurrentTrace()
 			}
 			buf.WriteString("\n")
-			index++
+			currentLine++
 			buf.WriteString(indent)
 			buf.WriteString("]")
 		}
-		return index, nil
+		return currentLine, nil
 
 	case *valueObject:
-		i.output(v, buf, trace, index)
 		fieldNames := objectFields(v, withoutHidden)
 		sort.Strings(fieldNames)
 
@@ -973,10 +972,11 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, index int,
 		err := checkAssertions(i, v)
 		if err != nil {
 			i.stack.clearCurrentTrace()
-			return index, err
+			return currentLine, err
 		}
 		i.stack.clearCurrentTrace()
 
+		i.output(v, buf, trace, currentLine)
 		if len(fieldNames) == 0 {
 			buf.WriteString("{ }")
 		} else {
@@ -990,20 +990,20 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, index int,
 				fieldVal, err := v.index(i, fieldName)
 				if err != nil {
 					i.stack.clearCurrentTrace()
-					return index, err
+					return currentLine, err
 				}
 
 				buf.WriteString(prefix)
-				index++
+				currentLine++
 				buf.WriteString(indent2)
 
 				buf.WriteString(unparseString(fieldName))
 				buf.WriteString(": ")
 
-				index, err = i.manifestWithTrace(fieldVal, indent2, index, buf, trace)
+				currentLine, err = i.manifestWithTrace(fieldVal, indent2, currentLine, buf, trace)
 				if err != nil {
 					i.stack.clearCurrentTrace()
-					return index, err
+					return currentLine, err
 				}
 				prefix = ",\n"
 
@@ -1011,14 +1011,14 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, index int,
 			}
 
 			buf.WriteString("\n")
-			index++
+			currentLine++
 			buf.WriteString(indent)
 			buf.WriteString("}")
 		}
-		return index, nil
+		return currentLine, nil
 
 	default:
-		return index, makeRuntimeError(
+		return currentLine, makeRuntimeError(
 			fmt.Sprintf("manifesting this value not implemented yet: %s", reflect.TypeOf(v)),
 			i.getCurrentStackTrace(),
 		)
@@ -1028,6 +1028,7 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, index int,
 
 func (i *interpreter) output(v value, buf *bytes.Buffer, trace map[int][]*TraceItem, index int) {
 	stk := v.Stack()
+	node := stk[len(stk)-1]
 	var items []*TraceItem
 	for i := len(stk) - 1; i >= 0; i-- {
 		n := stk[i]
@@ -1038,7 +1039,7 @@ func (i *interpreter) output(v value, buf *bytes.Buffer, trace map[int][]*TraceI
 		})
 	}
 	trace[index] = items
-	// buf.WriteString(fmt.Sprintf("<%s:%d-%d(%d)>", node.Loc().FileName, node.Loc().Begin.Line, node.Loc().End.Line, len(node.Loc().File.Lines)))
+	buf.WriteString(fmt.Sprintf("<%s:%d-%d(%d)>", node.Loc().FileName, node.Loc().Begin.Line, node.Loc().End.Line, index))
 }
 
 func (i *interpreter) manifestAndSerializeJSON(
