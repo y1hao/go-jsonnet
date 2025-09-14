@@ -47,6 +47,7 @@ type VM struct { //nolint:govet
 	importCache    *importCache
 	traceOut       io.Writer
 	EvalHook       EvalHook
+	stack          []ast.Node
 }
 
 // extKind indicates the kind of external variable that is being initialized for the VM
@@ -87,6 +88,22 @@ func MakeVM() *VM {
 			post: func(i *interpreter, a ast.Node, v value, err error) {},
 		},
 	}
+}
+
+func MakeTracingVM() *VM {
+	vm := MakeVM()
+	vm.EvalHook = EvalHook{
+		pre: func(i *interpreter, a ast.Node) {
+			vm.stack = append(vm.stack, a)
+		},
+		post: func(i *interpreter, a ast.Node, v value, err error) {
+			if v != nil {
+				v.RecordStack(vm.stack)
+			}
+			vm.stack = vm.stack[:len(vm.stack)-1]
+		},
+	}
+	return vm
 }
 
 // Fully flush cache. This should be executed when we are no longer sure that the source files

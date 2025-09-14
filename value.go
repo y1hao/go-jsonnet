@@ -30,6 +30,9 @@ type value interface {
 	aValue()
 
 	getType() *valueType
+
+	RecordStack([]ast.Node)
+	Stack() []ast.Node
 }
 
 type valueType struct {
@@ -66,7 +69,17 @@ type potentialValue interface {
 // A set of variables with associated thunks.
 type bindingFrame map[ast.Identifier]*cachedThunk
 
-type valueBase struct{}
+type valueBase struct {
+	stack []ast.Node
+}
+
+func (v *valueBase) RecordStack(stack []ast.Node) {
+	v.stack = stack
+}
+
+func (v *valueBase) Stack() []ast.Node {
+	return v.stack
+}
 
 func (v *valueBase) aValue() {}
 

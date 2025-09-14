@@ -881,14 +881,170 @@ func serializeJSON(v interface{}, multiline bool, indent string, buf *bytes.Buff
 	}
 }
 
-func (i *interpreter) manifestAndSerializeJSON(
-	buf *bytes.Buffer, v value, multiline bool, indent string) error {
-	manifested, err := i.manifestJSON(v)
+func (i *interpreter) manifestAndPrint(v interface{}, indent string, buf *bytes.Buffer) error {
+	if i.stack.currentTrace == (traceElement{}) {
+		panic("manifesting JSON with empty traceElement")
+	}
+
+	// Fresh frame for better stack traces
+	err := i.newCall(environment{}, false)
 	if err != nil {
 		return err
 	}
-	serializeJSON(manifested, multiline, indent, buf)
-	return nil
+	stackSize := len(i.stack.stack)
+	defer i.stack.popIfExists(stackSize)
+
+	switch v := v.(type) {
+
+	case *valueBoolean:
+		if v.value {
+			buf.WriteString("true")
+		} else {
+			buf.WriteString("false")
+		}
+		i.p(v, buf)
+		return nil
+
+	case *valueFunction:
+		return makeRuntimeError("couldn't manifest function as JSON", i.getCurrentStackTrace())
+
+	case *valueNumber:
+		buf.WriteString(unparseNumber(v.value))
+		i.p(v, buf)
+		return nil
+
+	case valueString:
+		buf.WriteString(unparseString(v.getGoString()))
+		i.p(v, buf)
+		return nil
+
+	case *valueNull:
+		buf.WriteString("null")
+		i.p(v, buf)
+		return nil
+
+	case *valueArray:
+		if len(v.elements) == 0 {
+			buf.WriteString("[ ]")
+		} else {
+			prefix := "[\n"
+			indent2 := indent + "   "
+			i.p(v, buf)
+			for index, th := range v.elements {
+				msg := ast.MakeLocationRangeMessage(fmt.Sprintf("Array element %d", index))
+				i.stack.setCurrentTrace(traceElement{
+					loc: &msg,
+				})
+				elVal, err := i.evaluatePV(th)
+				if err != nil {
+					i.stack.clearCurrentTrace()
+					return err
+				}
+
+				buf.WriteString(prefix)
+				buf.WriteString(indent2)
+				err = i.manifestAndPrint(elVal, indent2, buf)
+				prefix = ",\n"
+				if err != nil {
+					i.stack.clearCurrentTrace()
+					return err
+				}
+				i.stack.clearCurrentTrace()
+			}
+			buf.WriteString("\n")
+			buf.WriteString(indent)
+			buf.WriteString("]")
+		}
+
+		return nil
+
+	case *valueObject:
+		fieldNames := objectFields(v, withoutHidden)
+		sort.Strings(fieldNames)
+
+		msg := ast.MakeLocationRangeMessage("Checking object assertions")
+		i.stack.setCurrentTrace(traceElement{
+			loc: &msg,
+		})
+		err := checkAssertions(i, v)
+		if err != nil {
+			i.stack.clearCurrentTrace()
+			return err
+		}
+		i.stack.clearCurrentTrace()
+
+		if len(fieldNames) == 0 {
+			buf.WriteString("{ }")
+		} else {
+			prefix := "{\n"
+			indent2 := indent + "   "
+			i.p(v, buf)
+			for _, fieldName := range fieldNames {
+				msg := ast.MakeLocationRangeMessage(fmt.Sprintf("Field %#v", fieldName))
+				i.stack.setCurrentTrace(traceElement{
+					loc: &msg,
+				})
+				fieldVal, err := v.index(i, fieldName)
+				if err != nil {
+					i.stack.clearCurrentTrace()
+					return err
+				}
+
+				buf.WriteString(prefix)
+				buf.WriteString(indent2)
+
+				buf.WriteString(unparseString(fieldName))
+				buf.WriteString(": ")
+
+				err = i.manifestAndPrint(fieldVal, indent2, buf)
+				if err != nil {
+					i.stack.clearCurrentTrace()
+					return err
+				}
+				prefix = ",\n"
+
+				i.stack.clearCurrentTrace()
+			}
+
+			buf.WriteString("\n")
+			buf.WriteString(indent)
+			buf.WriteString("}")
+		}
+		return nil
+
+	default:
+		return makeRuntimeError(
+			fmt.Sprintf("manifesting this value not implemented yet: %s", reflect.TypeOf(v)),
+			i.getCurrentStackTrace(),
+		)
+
+	}
+}
+
+func (i *interpreter) p(v value, buf *bytes.Buffer) {
+	stk := v.Stack()
+	node := stk[len(stk)-1]
+	buf.WriteString(fmt.Sprintf("<%s:%d>", node.Loc().FileName, node.Loc().Begin.Line))
+}
+
+func (i *interpreter) pstrck(ts []TraceFrame, buf *bytes.Buffer) {
+	buf.WriteByte('<')
+	for _, t := range ts {
+		buf.WriteString(fmt.Sprintf("%s (%s:%d)", t.Name, t.Loc.FileName, t.Loc.Begin.Line))
+		buf.WriteByte(',')
+	}
+	buf.WriteByte('>')
+}
+
+func (i *interpreter) manifestAndSerializeJSON(
+	buf *bytes.Buffer, v value, multiline bool, indent string) error {
+	// manifested, err := i.manifestJSON(v)
+	// if err != nil {
+	// 	return err
+	// }
+	// serializeJSON(manifested, multiline, indent, buf)
+	// return nil
+	return i.manifestAndPrint(v, indent, buf)
 }
 
 // manifestString expects the value to be a string and returns it.
