@@ -56,11 +56,12 @@ func main() {
 	lines := strings.Count(result, "\n") + 1
 	p := tea.NewProgram(
 		model{
-			currentLine: 0,
-			lines:       lines,
-			filename:    filename,
-			json:        result,
-			trace:       trace,
+			currentLine:     0,
+			currentPosition: 0,
+			lines:           lines,
+			filename:        filename,
+			json:            result,
+			trace:           trace,
 		},
 		tea.WithAltScreen(),
 		tea.WithMouseCellMotion(),
@@ -95,9 +96,8 @@ func getOrigin(trace map[int]*ast.LocationRange, line int) string {
 }
 
 var (
-	keyMap          = viewport.DefaultKeyMap()
-	mouseWheelDelta = 3
-	titleStyle      = func() lipgloss.Style {
+	keyMap     = viewport.DefaultKeyMap()
+	titleStyle = func() lipgloss.Style {
 		b := lipgloss.RoundedBorder()
 		// b.Right = "├"
 		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
@@ -111,13 +111,14 @@ var (
 )
 
 type model struct {
-	currentLine int
-	lines       int
-	json        string
-	filename    string
-	trace       map[int]*ast.LocationRange
-	ready       bool
-	viewport    viewport.Model
+	currentLine     int
+	currentPosition int
+	lines           int
+	json            string
+	filename        string
+	trace           map[int]*ast.LocationRange
+	ready           bool
+	viewport        viewport.Model
 }
 
 func (m model) Init() tea.Cmd {
@@ -220,14 +221,22 @@ func (m *model) up() {
 	if m.currentLine > 0 {
 		m.currentLine--
 	}
-	m.viewport.ScrollUp(1)
+	if m.currentPosition > 0 {
+		m.currentPosition--
+	} else {
+		m.viewport.ScrollUp(1)
+	}
 }
 
 func (m *model) down() {
 	if m.currentLine < m.lines-1 {
 		m.currentLine++
 	}
-	m.viewport.ScrollDown(1)
+	if m.currentPosition < m.viewport.Height-1 {
+		m.currentPosition++
+	} else {
+		m.viewport.ScrollDown(1)
+	}
 }
 
 func max(a, b int) int {
