@@ -904,7 +904,7 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLin
 		} else {
 			buf.WriteString("false")
 		}
-		i.output(v, buf, trace, currentLine)
+		i.output(v, trace, currentLine)
 		return currentLine, nil
 
 	case *valueFunction:
@@ -912,21 +912,21 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLin
 
 	case *valueNumber:
 		buf.WriteString(unparseNumber(v.value))
-		i.output(v, buf, trace, currentLine)
+		i.output(v, trace, currentLine)
 		return currentLine, nil
 
 	case valueString:
 		buf.WriteString(unparseString(v.getGoString()))
-		i.output(v, buf, trace, currentLine)
+		i.output(v, trace, currentLine)
 		return currentLine, nil
 
 	case *valueNull:
 		buf.WriteString("null")
-		i.output(v, buf, trace, currentLine)
+		i.output(v, trace, currentLine)
 		return currentLine, nil
 
 	case *valueArray:
-		i.output(v, buf, trace, currentLine)
+		i.output(v, trace, currentLine)
 		if len(v.elements) == 0 {
 			buf.WriteString("[ ]")
 		} else {
@@ -976,7 +976,7 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLin
 		}
 		i.stack.clearCurrentTrace()
 
-		i.output(v, buf, trace, currentLine)
+		i.output(v, trace, currentLine)
 		if len(fieldNames) == 0 {
 			buf.WriteString("{ }")
 		} else {
@@ -1026,10 +1026,8 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLin
 	}
 }
 
-func (i *interpreter) output(v value, buf *bytes.Buffer, trace map[int]*ast.LocationRange, index int) {
-	node := v.Origin()
-	trace[index] = node.Loc()
-	buf.WriteString(fmt.Sprintf("<%s:%d-%d(%d)>", node.Loc().FileName, node.Loc().Begin.Line, node.Loc().End.Line, index))
+func (i *interpreter) output(v value, trace map[int]*ast.LocationRange, index int) {
+	trace[index] = v.Origin().Loc()
 }
 
 func (i *interpreter) manifestAndSerializeJSON(
