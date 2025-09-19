@@ -17,6 +17,29 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var (
+	mainColor = lipgloss.Color("28")
+	gray      = lipgloss.Color("245")
+	keyMap    = viewport.DefaultKeyMap()
+
+	headerStyle = func() lipgloss.Style {
+		return lipgloss.NewStyle().
+			Background(mainColor).
+			Padding(0, 1)
+	}()
+	dataStyle = func() lipgloss.Style {
+		return lipgloss.NewStyle().
+			Foreground(mainColor).
+			Padding(0, 1)
+	}()
+	heighlightStyle = func() lipgloss.Style {
+		return lipgloss.NewStyle().Foreground(mainColor).Bold(true)
+	}()
+	infoStyle = func() lipgloss.Style {
+		return lipgloss.NewStyle().Foreground(gray)
+	}()
+)
+
 func usage(o io.Writer) {
 	fmt.Fprintln(o)
 	fmt.Fprintln(o, "jsonnet-trace {<option>} { <filename> }")
@@ -95,21 +118,6 @@ func getOrigin(trace map[int]*ast.LocationRange, line int) string {
 	return fmt.Sprintf("%s:%d-%d", filename, beginLine, endLine)
 }
 
-var (
-	keyMap     = viewport.DefaultKeyMap()
-	titleStyle = func() lipgloss.Style {
-		b := lipgloss.RoundedBorder()
-		// b.Right = "├"
-		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
-	}()
-
-	infoStyle = func() lipgloss.Style {
-		b := lipgloss.RoundedBorder()
-		// b.Left = "┤"
-		return titleStyle.BorderStyle(b)
-	}()
-)
-
 type model struct {
 	currentLine     int
 	currentPosition int
@@ -163,17 +171,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
-		headerHeight := lipgloss.Height(m.headerView())
-		footerHeight := lipgloss.Height(m.footerView())
-		verticalMarginHeight := headerHeight + footerHeight
+		titleHeight := lipgloss.Height(m.inputView())
+		infoHeight := lipgloss.Height(m.sourceView())
+		verticalMarginHeight := titleHeight + infoHeight + 1
 
 		if !m.ready {
 			m.viewport = viewport.New(msg.Width, msg.Height-verticalMarginHeight)
-			m.viewport.YPosition = headerHeight
+			m.viewport.YPosition = titleHeight
 			m.viewport.SetContent(m.json)
 			m.ready = true
 		} else {
-			m.viewport.Width = msg.Width
+			m.viewport.Width = msg.Width - len(" > 1000 ")
 			m.viewport.Height = msg.Height - verticalMarginHeight
 		}
 	}
@@ -185,36 +193,40 @@ func (m model) View() string {
 	if !m.ready {
 		return "\n  Initializing..."
 	}
-	return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.contentView(), m.footerView())
+	return fmt.Sprintf("%s\n\n%s\n%s", m.sourceView(), m.contentView(), m.inputView())
 }
 
 func (m model) contentView() string {
 	vpView := m.viewport.View()
 	offset := m.viewport.YOffset
 
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	lineNumbers := []string{}
+	marker := []string{}
 	for i := offset; i < m.viewport.Height+offset; i++ {
 		if i == m.currentLine {
-			lineNumbers = append(lineNumbers, style.Render(strconv.Itoa(i)))
+			marker = append(marker, heighlightStyle.Render(" > "))
+			lineNumbers = append(lineNumbers, heighlightStyle.Render(strconv.Itoa(i+1)))
 		} else {
-			lineNumbers = append(lineNumbers, strconv.Itoa(i))
+			marker = append(marker, "  ")
+			lineNumbers = append(lineNumbers, infoStyle.Render(strconv.Itoa(i+1)))
 		}
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, strings.Join(lineNumbers, "\n"), vpView)
+	return lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		strings.Join(marker, "\n"),
+		strings.Join(lineNumbers, "\n"),
+		vpView)
 }
 
-func (m model) headerView() string {
-	title := titleStyle.Render(fmt.Sprintf("%s (Current line: %d)", m.filename, m.currentLine))
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(title)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+func (m model) inputView() string {
+	info := dataStyle.Render(m.filename)
+	spaces := strings.Repeat(" ", max(0, m.viewport.Width-lipgloss.Width(info)))
+	return lipgloss.JoinHorizontal(lipgloss.Center, spaces, info)
 }
 
-func (m model) footerView() string {
-	info := infoStyle.Render(fmt.Sprintf("%s", getOrigin(m.trace, m.currentLine)))
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+func (m model) sourceView() string {
+	return headerStyle.Render("SOURCE") + dataStyle.Render(getOrigin(m.trace, m.currentLine))
 }
 
 func (m *model) up() {
@@ -237,11 +249,4 @@ func (m *model) down() {
 	} else {
 		m.viewport.ScrollDown(1)
 	}
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
