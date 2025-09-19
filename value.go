@@ -31,8 +31,8 @@ type value interface {
 
 	getType() *valueType
 
-	RecordStack([]ast.Node)
-	Stack() []ast.Node
+	RecordOrigin(ast.Node)
+	Origin() ast.Node
 }
 
 type valueType struct {
@@ -70,15 +70,15 @@ type potentialValue interface {
 type bindingFrame map[ast.Identifier]*cachedThunk
 
 type valueBase struct {
-	stack []ast.Node
+	origin ast.Node
 }
 
-func (v *valueBase) RecordStack(stack []ast.Node) {
-	v.stack = stack
+func (v *valueBase) RecordOrigin(n ast.Node) {
+	v.origin = n
 }
 
-func (v *valueBase) Stack() []ast.Node {
-	return v.stack
+func (v *valueBase) Origin() ast.Node {
+	return v.origin
 }
 
 func (v *valueBase) aValue() {}

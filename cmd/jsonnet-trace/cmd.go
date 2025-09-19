@@ -4,10 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 
-	"github.com/google/go-jsonnet/trace"
+	"github.com/google/go-jsonnet"
+	"github.com/google/go-jsonnet/ast"
 )
 
 func usage(o io.Writer) {
@@ -37,21 +37,23 @@ func main() {
 	}
 
 	filename := flag.Args()[0]
-	tracer := trace.NewTracer()
 
 	fmt.Fprintf(os.Stdout, "Building jsonnet file %q...\n", filename)
 
-	result, frames, err := tracer.GenerateTrace(filename)
+	result, trace, err := buildWithTrace(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to generate trace for file %s: %s", filename, err.Error())
 	}
 
-	fmt.Fprintln(os.Stdout, "Build succeeded. Serving trace information on")
-	fmt.Fprintln(os.Stdout, "    http://localhost:8080")
+	fmt.Print(result)
+	fmt.Printf("%v\n", trace)
+}
 
-	handler := trace.NewServer(filename, result, frames)
-	err = http.ListenAndServe(":8080", handler)
+func buildWithTrace(filename string) (string, map[int]*ast.LocationRange, error) {
+	vm := jsonnet.MakeTracingVM()
+	result, trace, err := vm.EvaluateFileWithTrace(filename)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "failed to display trace info: ", err.Error())
+		return "", nil, fmt.Errorf("error generating trace: %w", err)
 	}
+	return result, trace, nil
 }

@@ -883,7 +883,7 @@ func serializeJSON(v interface{}, multiline bool, indent string, buf *bytes.Buff
 	}
 }
 
-func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLine int, buf *bytes.Buffer, trace map[int][]*TraceItem) (int, error) {
+func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLine int, buf *bytes.Buffer, trace map[int]*ast.LocationRange) (int, error) {
 	if i.stack.currentTrace == (traceElement{}) {
 		panic("manifesting JSON with empty traceElement")
 	}
@@ -1026,22 +1026,9 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLin
 	}
 }
 
-func (i *interpreter) output(v value, buf *bytes.Buffer, trace map[int][]*TraceItem, index int) {
-	stk := v.Stack()
-	if len(stk) == 0 {
-		return
-	}
-	node := stk[len(stk)-1]
-	var items []*TraceItem
-	for i := len(stk) - 1; i >= 0; i-- {
-		n := stk[i]
-		items = append(items, &TraceItem{
-			Filename:  n.Loc().FileName,
-			StartLine: n.Loc().Begin.Line,
-			EndLine:   n.Loc().End.Line,
-		})
-	}
-	trace[index] = items
+func (i *interpreter) output(v value, buf *bytes.Buffer, trace map[int]*ast.LocationRange, index int) {
+	node := v.Origin()
+	trace[index] = node.Loc()
 	buf.WriteString(fmt.Sprintf("<%s:%d-%d(%d)>", node.Loc().FileName, node.Loc().Begin.Line, node.Loc().End.Line, index))
 }
 
@@ -1055,7 +1042,7 @@ func (i *interpreter) manifestAndSerializeJSON(
 	return nil
 }
 
-func (i *interpreter) manifestAndGetTrace(trace map[int][]*TraceItem, buf *bytes.Buffer, v value, indent string, index int) error {
+func (i *interpreter) manifestAndGetTrace(trace map[int]*ast.LocationRange, buf *bytes.Buffer, v value, indent string, index int) error {
 	_, err := i.manifestWithTrace(v, indent, index, buf, trace)
 	return err
 }
@@ -1442,7 +1429,7 @@ func buildObject(hide ast.ObjectFieldHide, fields map[string]value) *valueObject
 	return makeValueSimpleObject(bindingFrame{}, fieldMap, nil, nil)
 }
 
-func buildInterpreter(ext vmExtMap, nativeFuncs map[string]*NativeFunction, maxStack int, ic *importCache, traceOut io.Writer, evalHook EvalHook, tracing map[int][]*TraceItem) (*interpreter, error) {
+func buildInterpreter(ext vmExtMap, nativeFuncs map[string]*NativeFunction, maxStack int, ic *importCache, traceOut io.Writer, evalHook EvalHook, tracing map[int]*ast.LocationRange) (*interpreter, error) {
 	i := interpreter{
 		stack:       makeCallStack(maxStack),
 		importCache: ic,
@@ -1521,7 +1508,7 @@ func evaluateAux(i *interpreter, node ast.Node, tla vmExtMap) (value, error) {
 
 // TODO(sbarzowski) this function takes far too many arguments - build interpreter in vm instead
 func evaluate(node ast.Node, ext vmExtMap, tla vmExtMap, nativeFuncs map[string]*NativeFunction,
-	maxStack int, ic *importCache, traceOut io.Writer, stringOutputMode bool, evalHook EvalHook, trace map[int][]*TraceItem) (string, error) {
+	maxStack int, ic *importCache, traceOut io.Writer, stringOutputMode bool, evalHook EvalHook, trace map[int]*ast.LocationRange) (string, error) {
 
 	i, err := buildInterpreter(ext, nativeFuncs, maxStack, ic, traceOut, evalHook, trace)
 	if err != nil {

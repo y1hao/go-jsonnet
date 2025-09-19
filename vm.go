@@ -47,7 +47,7 @@ type VM struct { //nolint:govet
 	importCache    *importCache
 	traceOut       io.Writer
 	EvalHook       EvalHook
-	stack          []ast.Node
+	origin         ast.Node
 	isTracing      bool
 }
 
@@ -95,16 +95,11 @@ func MakeTracingVM() *VM {
 	vm := MakeVM()
 	vm.isTracing = true
 	vm.EvalHook = EvalHook{
-		pre: func(i *interpreter, a ast.Node) {
-			vm.stack = append(vm.stack, a)
-		},
+		pre: func(i *interpreter, a ast.Node) {},
 		post: func(i *interpreter, a ast.Node, v value, err error) {
 			if v != nil {
-				cp := make([]ast.Node, len(vm.stack))
-				copy(cp, vm.stack)
-				v.RecordStack(cp)
+				v.RecordOrigin(a)
 			}
-			vm.stack = vm.stack[:len(vm.stack)-1]
 		},
 	}
 	return vm
@@ -211,7 +206,7 @@ func (vm *VM) Evaluate(node ast.Node) (val string, err error) {
 	return evaluate(node, vm.ext, vm.tla, vm.nativeFuncs, vm.MaxStack, vm.importCache, vm.traceOut, vm.StringOutput, vm.EvalHook, nil /*trace*/)
 }
 
-func (vm *VM) EvaluateWithTrace(node ast.Node, trace map[int][]*TraceItem) (val string, err error) {
+func (vm *VM) EvaluateWithTrace(node ast.Node, trace map[int]*ast.LocationRange) (val string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("(CRASH) %v\n%s", r, debug.Stack())
@@ -453,16 +448,17 @@ func (vm *VM) EvaluateFile(filename string) (json string, formattedErr error) {
 	return output, nil
 }
 
-func (vm *VM) EvaluateFileWithTrace(filename string, trace map[int][]*TraceItem) (json string, formattedErr error) {
+func (vm *VM) EvaluateFileWithTrace(filename string) (json string, trace map[int]*ast.LocationRange, formattedErr error) {
+	trace = map[int]*ast.LocationRange{}
 	node, _, err := vm.ImportAST("", filename)
 	if err != nil {
-		return "", errors.New(vm.ErrorFormatter.Format(err))
+		return "", nil, errors.New(vm.ErrorFormatter.Format(err))
 	}
 	output, err := vm.EvaluateWithTrace(node, trace)
 	if err != nil {
-		return "", errors.New(vm.ErrorFormatter.Format(err))
+		return "", nil, errors.New(vm.ErrorFormatter.Format(err))
 	}
-	return output, nil
+	return output, trace, nil
 }
 
 // EvaluateFileStream evaluates Jsonnet code in a file to an array.
