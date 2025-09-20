@@ -145,7 +145,7 @@ func (s *callStack) tailCallTrimStack() {
 
 func (s *callStack) setCurrentTrace(trace traceElement) {
 	if s.currentTrace != (traceElement{}) {
-		panic("Tried to change the traceElement while the old one was still there.")
+		panic(fmt.Sprintf("Tried to change the traceElement while the old one was still there: %v", s.currentTrace.loc))
 	}
 	s.currentTrace = trace
 }
@@ -1027,7 +1027,11 @@ func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLin
 }
 
 func (i *interpreter) output(v value, trace map[int]*ast.LocationRange, index int) {
-	trace[index] = v.Origin().Loc()
+	origin := v.Origin()
+	if origin == nil {
+		return
+	}
+	trace[index] = origin.Loc()
 }
 
 func (i *interpreter) manifestAndSerializeJSON(

@@ -97,9 +97,10 @@ func MakeTracingVM() *VM {
 	vm.EvalHook = EvalHook{
 		pre: func(i *interpreter, a ast.Node) {},
 		post: func(i *interpreter, a ast.Node, v value, err error) {
-			if v != nil {
-				v.RecordOrigin(a)
+			if err != nil || a == nil || v == nil {
+				return
 			}
+			v.RecordOrigin(a)
 		},
 	}
 	return vm
