@@ -1,0 +1,23 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "go_default_library",
+    srcs = ["cmd.go"],
+    importpath = "github.com/google/go-jsonnet/cmd/jsonnet-trace",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//:go_default_library",
+        "//ast:go_default_library",
+        "@com_github_charmbracelet_bubbles//key:go_default_library",
+        "@com_github_charmbracelet_bubbles//viewport:go_default_library",
+        "@com_github_charmbracelet_bubbletea//:go_default_library",
+        "@com_github_charmbracelet_lipgloss//:go_default_library",
+        "@com_github_spf13_pflag//:go_default_library",
+    ],
+)
+
+go_binary(
+    name = "jsonnet-trace",
+    embed = [":go_default_library"],
+    visibility = ["//visibility:public"],
+)
