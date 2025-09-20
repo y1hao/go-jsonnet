@@ -1,10 +1,10 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/spf13/pflag"
 )
 
 var (
@@ -49,28 +50,49 @@ func usage(o io.Writer) {
 	fmt.Fprintln(o)
 	fmt.Fprintln(o, "Available options:")
 	fmt.Fprintln(o, "  -h / --help                This message")
+	fmt.Fprintln(o, "  -J / --jpath <dir>         Specify an additional library search dir")
+	fmt.Fprintln(o)
+	fmt.Fprintln(o, "Environment variables:")
+	fmt.Fprintln(o, "  JSONNET_PATH is a colon (semicolon on Windows) separated list of directories")
+	fmt.Fprintln(o, "  added in reverse order before the paths specified by --jpath (i.e. left-most")
+	fmt.Fprintln(o, "  wins). E.g. these are equivalent:")
+	fmt.Fprintln(o, "    JSONNET_PATH=a:b jsonnet-trace -J c -J d")
+	fmt.Fprintln(o, "    JSONNET_PATH=d:c:a:b jsonnet-trace")
+	fmt.Fprintln(o, "    jsonnet-trace -J b -J a -J c -J d")
 	fmt.Fprintln(o)
 }
 
 func main() {
-	showHelp := flag.Bool("help", false, "Show usage info")
-	flag.Parse()
+	showHelp := pflag.Bool("help", false, "Show usage info")
+	jpath := pflag.StringArrayP("jpath", "J", []string{}, "Additional library search dir")
+
+	pflag.Parse()
 
 	if showHelp != nil && *showHelp {
 		usage(os.Stderr)
 		return
 	}
 
-	if flag.NArg() != 1 {
+	if pflag.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "jsonnet-trace can only take a single file")
 		usage(os.Stderr)
+		os.Exit(1)
 	}
 
-	filename := flag.Args()[0]
+	filename := pflag.Args()[0]
+
+	evalJpath := []string{}
+	jsonnetPath := filepath.SplitList(os.Getenv("JSONNET_PATH"))
+	for i := len(jsonnetPath) - 1; i >= 0; i-- {
+		evalJpath = append(evalJpath, jsonnetPath[i])
+	}
+	if jpath != nil {
+		evalJpath = append(evalJpath, *jpath...)
+	}
 
 	fmt.Fprintf(os.Stdout, "Building jsonnet file %q...\n", filename)
 
-	result, trace, err := buildWithTrace(filename)
+	result, trace, err := buildWithTrace(filename, evalJpath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to generate trace for file %s: %s", filename, err.Error())
 		os.Exit(1)
@@ -98,8 +120,11 @@ func main() {
 
 }
 
-func buildWithTrace(filename string) (string, map[int]*ast.LocationRange, error) {
+func buildWithTrace(filename string, evalJpath []string) (string, map[int]*ast.LocationRange, error) {
 	vm := jsonnet.MakeTracingVM()
+	vm.Importer(&jsonnet.FileImporter{
+		JPaths: evalJpath,
+	})
 	result, trace, err := vm.EvaluateFileWithTrace(filename)
 	if err != nil {
 		return "", nil, fmt.Errorf("error generating trace: %w", err)
