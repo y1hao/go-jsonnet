@@ -73,6 +73,7 @@ func main() {
 	result, trace, err := buildWithTrace(filename)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to generate trace for file %s: %s", filename, err.Error())
+		os.Exit(1)
 	}
 
 	result = strings.Trim(result, " \n\r")
