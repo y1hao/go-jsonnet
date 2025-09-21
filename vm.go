@@ -47,6 +47,8 @@ type VM struct { //nolint:govet
 	importCache    *importCache
 	traceOut       io.Writer
 	EvalHook       EvalHook
+	origin         ast.Node
+	isTracing      bool
 }
 
 // extKind indicates the kind of external variable that is being initialized for the VM
@@ -87,6 +89,21 @@ func MakeVM() *VM {
 			post: func(i *interpreter, a ast.Node, v value, err error) {},
 		},
 	}
+}
+
+func MakeTracingVM() *VM {
+	vm := MakeVM()
+	vm.isTracing = true
+	vm.EvalHook = EvalHook{
+		pre: func(i *interpreter, a ast.Node) {},
+		post: func(i *interpreter, a ast.Node, v value, err error) {
+			if err != nil || a == nil || v == nil {
+				return
+			}
+			v.RecordOrigin(a)
+		},
+	}
+	return vm
 }
 
 // Fully flush cache. This should be executed when we are no longer sure that the source files
@@ -187,7 +204,16 @@ func (vm *VM) Evaluate(node ast.Node) (val string, err error) {
 			err = fmt.Errorf("(CRASH) %v\n%s", r, debug.Stack())
 		}
 	}()
-	return evaluate(node, vm.ext, vm.tla, vm.nativeFuncs, vm.MaxStack, vm.importCache, vm.traceOut, vm.StringOutput, vm.EvalHook)
+	return evaluate(node, vm.ext, vm.tla, vm.nativeFuncs, vm.MaxStack, vm.importCache, vm.traceOut, vm.StringOutput, vm.EvalHook, nil /*trace*/)
+}
+
+func (vm *VM) EvaluateWithTrace(node ast.Node, trace map[int]*ast.LocationRange) (val string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("(CRASH) %v\n%s", r, debug.Stack())
+		}
+	}()
+	return evaluate(node, vm.ext, vm.tla, vm.nativeFuncs, vm.MaxStack, vm.importCache, vm.traceOut, vm.StringOutput, vm.EvalHook, trace)
 }
 
 // EvaluateStream evaluates a Jsonnet program given by an Abstract Syntax Tree
@@ -225,7 +251,7 @@ func (vm *VM) evaluateSnippet(diagnosticFileName ast.DiagnosticFileName, filenam
 	}
 	switch kind {
 	case evalKindRegular:
-		output, err = evaluate(node, vm.ext, vm.tla, vm.nativeFuncs, vm.MaxStack, vm.importCache, vm.traceOut, vm.StringOutput, vm.EvalHook)
+		output, err = evaluate(node, vm.ext, vm.tla, vm.nativeFuncs, vm.MaxStack, vm.importCache, vm.traceOut, vm.StringOutput, vm.EvalHook, nil)
 	case evalKindMulti:
 		output, err = evaluateMulti(node, vm.ext, vm.tla, vm.nativeFuncs, vm.MaxStack, vm.importCache, vm.traceOut, vm.StringOutput, vm.EvalHook)
 	case evalKindStream:
@@ -421,6 +447,19 @@ func (vm *VM) EvaluateFile(filename string) (json string, formattedErr error) {
 		return "", errors.New(vm.ErrorFormatter.Format(err))
 	}
 	return output, nil
+}
+
+func (vm *VM) EvaluateFileWithTrace(filename string) (json string, trace map[int]*ast.LocationRange, formattedErr error) {
+	trace = map[int]*ast.LocationRange{}
+	node, _, err := vm.ImportAST("", filename)
+	if err != nil {
+		return "", nil, errors.New(vm.ErrorFormatter.Format(err))
+	}
+	output, err := vm.EvaluateWithTrace(node, trace)
+	if err != nil {
+		return "", nil, errors.New(vm.ErrorFormatter.Format(err))
+	}
+	return output, trace, nil
 }
 
 // EvaluateFileStream evaluates Jsonnet code in a file to an array.

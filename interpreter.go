@@ -145,7 +145,7 @@ func (s *callStack) tailCallTrimStack() {
 
 func (s *callStack) setCurrentTrace(trace traceElement) {
 	if s.currentTrace != (traceElement{}) {
-		panic("Tried to change the traceElement while the old one was still there.")
+		panic(fmt.Sprintf("Tried to change the traceElement while the old one was still there: %v", s.currentTrace.loc))
 	}
 	s.currentTrace = trace
 }
@@ -281,6 +281,8 @@ type interpreter struct {
 	stack callStack
 
 	evalHook EvalHook
+
+	isTracing bool
 }
 
 // Map union, b takes precedence when keys collide.
@@ -881,6 +883,157 @@ func serializeJSON(v interface{}, multiline bool, indent string, buf *bytes.Buff
 	}
 }
 
+func (i *interpreter) manifestWithTrace(v interface{}, indent string, currentLine int, buf *bytes.Buffer, trace map[int]*ast.LocationRange) (int, error) {
+	if i.stack.currentTrace == (traceElement{}) {
+		panic("manifesting JSON with empty traceElement")
+	}
+
+	// Fresh frame for better stack traces
+	err := i.newCall(environment{}, false)
+	if err != nil {
+		return currentLine, err
+	}
+	stackSize := len(i.stack.stack)
+	defer i.stack.popIfExists(stackSize)
+
+	switch v := v.(type) {
+
+	case *valueBoolean:
+		if v.value {
+			buf.WriteString("true")
+		} else {
+			buf.WriteString("false")
+		}
+		i.output(v, trace, currentLine)
+		return currentLine, nil
+
+	case *valueFunction:
+		return currentLine, makeRuntimeError("couldn't manifest function as JSON", i.getCurrentStackTrace())
+
+	case *valueNumber:
+		buf.WriteString(unparseNumber(v.value))
+		i.output(v, trace, currentLine)
+		return currentLine, nil
+
+	case valueString:
+		buf.WriteString(unparseString(v.getGoString()))
+		i.output(v, trace, currentLine)
+		return currentLine, nil
+
+	case *valueNull:
+		buf.WriteString("null")
+		i.output(v, trace, currentLine)
+		return currentLine, nil
+
+	case *valueArray:
+		i.output(v, trace, currentLine)
+		if len(v.elements) == 0 {
+			buf.WriteString("[ ]")
+		} else {
+			prefix := "[\n"
+			indent2 := indent + "   "
+			for index, th := range v.elements {
+				msg := ast.MakeLocationRangeMessage(fmt.Sprintf("Array element %d", index))
+				i.stack.setCurrentTrace(traceElement{
+					loc: &msg,
+				})
+				elVal, err := i.evaluatePV(th)
+				if err != nil {
+					i.stack.clearCurrentTrace()
+					return index, err
+				}
+
+				buf.WriteString(prefix)
+				currentLine++
+				buf.WriteString(indent2)
+				currentLine, err = i.manifestWithTrace(elVal, indent2, currentLine, buf, trace)
+				prefix = ",\n"
+				if err != nil {
+					i.stack.clearCurrentTrace()
+					return currentLine, err
+				}
+				i.stack.clearCurrentTrace()
+			}
+			buf.WriteString("\n")
+			currentLine++
+			buf.WriteString(indent)
+			buf.WriteString("]")
+		}
+		return currentLine, nil
+
+	case *valueObject:
+		fieldNames := objectFields(v, withoutHidden)
+		sort.Strings(fieldNames)
+
+		msg := ast.MakeLocationRangeMessage("Checking object assertions")
+		i.stack.setCurrentTrace(traceElement{
+			loc: &msg,
+		})
+		err := checkAssertions(i, v)
+		if err != nil {
+			i.stack.clearCurrentTrace()
+			return currentLine, err
+		}
+		i.stack.clearCurrentTrace()
+
+		i.output(v, trace, currentLine)
+		if len(fieldNames) == 0 {
+			buf.WriteString("{ }")
+		} else {
+			prefix := "{\n"
+			indent2 := indent + "   "
+			for _, fieldName := range fieldNames {
+				msg := ast.MakeLocationRangeMessage(fmt.Sprintf("Field %#v", fieldName))
+				i.stack.setCurrentTrace(traceElement{
+					loc: &msg,
+				})
+				fieldVal, err := v.index(i, fieldName)
+				if err != nil {
+					i.stack.clearCurrentTrace()
+					return currentLine, err
+				}
+
+				buf.WriteString(prefix)
+				currentLine++
+				buf.WriteString(indent2)
+
+				buf.WriteString(unparseString(fieldName))
+				buf.WriteString(": ")
+
+				currentLine, err = i.manifestWithTrace(fieldVal, indent2, currentLine, buf, trace)
+				if err != nil {
+					i.stack.clearCurrentTrace()
+					return currentLine, err
+				}
+				prefix = ",\n"
+
+				i.stack.clearCurrentTrace()
+			}
+
+			buf.WriteString("\n")
+			currentLine++
+			buf.WriteString(indent)
+			buf.WriteString("}")
+		}
+		return currentLine, nil
+
+	default:
+		return currentLine, makeRuntimeError(
+			fmt.Sprintf("manifesting this value not implemented yet: %s", reflect.TypeOf(v)),
+			i.getCurrentStackTrace(),
+		)
+
+	}
+}
+
+func (i *interpreter) output(v value, trace map[int]*ast.LocationRange, index int) {
+	origin := v.Origin()
+	if origin == nil {
+		return
+	}
+	trace[index] = origin.Loc()
+}
+
 func (i *interpreter) manifestAndSerializeJSON(
 	buf *bytes.Buffer, v value, multiline bool, indent string) error {
 	manifested, err := i.manifestJSON(v)
@@ -889,6 +1042,11 @@ func (i *interpreter) manifestAndSerializeJSON(
 	}
 	serializeJSON(manifested, multiline, indent, buf)
 	return nil
+}
+
+func (i *interpreter) manifestAndGetTrace(trace map[int]*ast.LocationRange, buf *bytes.Buffer, v value, indent string, index int) error {
+	_, err := i.manifestWithTrace(v, indent, index, buf, trace)
+	return err
 }
 
 // manifestString expects the value to be a string and returns it.
@@ -1273,7 +1431,7 @@ func buildObject(hide ast.ObjectFieldHide, fields map[string]value) *valueObject
 	return makeValueSimpleObject(bindingFrame{}, fieldMap, nil, nil)
 }
 
-func buildInterpreter(ext vmExtMap, nativeFuncs map[string]*NativeFunction, maxStack int, ic *importCache, traceOut io.Writer, evalHook EvalHook) (*interpreter, error) {
+func buildInterpreter(ext vmExtMap, nativeFuncs map[string]*NativeFunction, maxStack int, ic *importCache, traceOut io.Writer, evalHook EvalHook, tracing map[int]*ast.LocationRange) (*interpreter, error) {
 	i := interpreter{
 		stack:       makeCallStack(maxStack),
 		importCache: ic,
@@ -1352,9 +1510,9 @@ func evaluateAux(i *interpreter, node ast.Node, tla vmExtMap) (value, error) {
 
 // TODO(sbarzowski) this function takes far too many arguments - build interpreter in vm instead
 func evaluate(node ast.Node, ext vmExtMap, tla vmExtMap, nativeFuncs map[string]*NativeFunction,
-	maxStack int, ic *importCache, traceOut io.Writer, stringOutputMode bool, evalHook EvalHook) (string, error) {
+	maxStack int, ic *importCache, traceOut io.Writer, stringOutputMode bool, evalHook EvalHook, trace map[int]*ast.LocationRange) (string, error) {
 
-	i, err := buildInterpreter(ext, nativeFuncs, maxStack, ic, traceOut, evalHook)
+	i, err := buildInterpreter(ext, nativeFuncs, maxStack, ic, traceOut, evalHook, trace)
 	if err != nil {
 		return "", err
 	}
@@ -1369,7 +1527,11 @@ func evaluate(node ast.Node, ext vmExtMap, tla vmExtMap, nativeFuncs map[string]
 	if stringOutputMode {
 		err = i.manifestString(&buf, result)
 	} else {
-		err = i.manifestAndSerializeJSON(&buf, result, true, "")
+		if trace != nil {
+			err = i.manifestAndGetTrace(trace, &buf, result, "", 0)
+		} else {
+			err = i.manifestAndSerializeJSON(&buf, result, true, "")
+		}
 	}
 	i.stack.clearCurrentTrace()
 	if err != nil {
@@ -1383,7 +1545,7 @@ func evaluate(node ast.Node, ext vmExtMap, tla vmExtMap, nativeFuncs map[string]
 func evaluateMulti(node ast.Node, ext vmExtMap, tla vmExtMap, nativeFuncs map[string]*NativeFunction,
 	maxStack int, ic *importCache, traceOut io.Writer, stringOutputMode bool, evalHook EvalHook) (map[string]string, error) {
 
-	i, err := buildInterpreter(ext, nativeFuncs, maxStack, ic, traceOut, evalHook)
+	i, err := buildInterpreter(ext, nativeFuncs, maxStack, ic, traceOut, evalHook, nil /*trace*/)
 	if err != nil {
 		return nil, err
 	}
@@ -1403,7 +1565,7 @@ func evaluateMulti(node ast.Node, ext vmExtMap, tla vmExtMap, nativeFuncs map[st
 func evaluateStream(node ast.Node, ext vmExtMap, tla vmExtMap, nativeFuncs map[string]*NativeFunction,
 	maxStack int, ic *importCache, traceOut io.Writer, evalHook EvalHook) ([]string, error) {
 
-	i, err := buildInterpreter(ext, nativeFuncs, maxStack, ic, traceOut, evalHook)
+	i, err := buildInterpreter(ext, nativeFuncs, maxStack, ic, traceOut, evalHook, nil /*trace*/)
 	if err != nil {
 		return nil, err
 	}

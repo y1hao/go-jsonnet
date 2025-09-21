@@ -30,6 +30,9 @@ type value interface {
 	aValue()
 
 	getType() *valueType
+
+	RecordOrigin(ast.Node)
+	Origin() ast.Node
 }
 
 type valueType struct {
@@ -66,7 +69,17 @@ type potentialValue interface {
 // A set of variables with associated thunks.
 type bindingFrame map[ast.Identifier]*cachedThunk
 
-type valueBase struct{}
+type valueBase struct {
+	origin ast.Node
+}
+
+func (v *valueBase) RecordOrigin(n ast.Node) {
+	v.origin = n
+}
+
+func (v *valueBase) Origin() ast.Node {
+	return v.origin
+}
 
 func (v *valueBase) aValue() {}
 
