@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/go-jsonnet"
-	"github.com/google/go-jsonnet/ast"
+	"github.com/y1hao/go-jsonnet"
+	"github.com/y1hao/go-jsonnet/ast"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"

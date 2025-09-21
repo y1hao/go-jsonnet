@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	jsonnet "github.com/google/go-jsonnet"
-	"github.com/google/go-jsonnet/internal/testutils"
+	jsonnet "github.com/y1hao/go-jsonnet"
+	"github.com/y1hao/go-jsonnet/internal/testutils"
 )
 
 var update = flag.Bool("update", false, "update .golden files")

@@ -19,7 +19,7 @@ limitations under the License.
 package pass
 
 import (
-	"github.com/google/go-jsonnet/ast"
+	"github.com/y1hao/go-jsonnet/ast"
 )
 
 // Context can be used to provide context when visting child expressions.

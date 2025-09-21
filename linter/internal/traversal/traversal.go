@@ -6,10 +6,10 @@
 package traversal
 
 import (
-	"github.com/google/go-jsonnet/ast"
-	"github.com/google/go-jsonnet/linter/internal/common"
+	"github.com/y1hao/go-jsonnet/ast"
+	"github.com/y1hao/go-jsonnet/linter/internal/common"
 
-	"github.com/google/go-jsonnet/internal/parser"
+	"github.com/y1hao/go-jsonnet/internal/parser"
 )
 
 func findLoopingInChildren(node ast.Node, vars map[ast.Identifier]ast.Node, runOf map[ast.Identifier]int, currentRun int, ec *common.ErrCollector) bool {

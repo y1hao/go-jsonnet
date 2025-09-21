@@ -20,7 +20,7 @@ go_library(
     cgo = True,
     copts = ["-Wall"],  # keep
     cxxopts = ["-std=c++11 -Wall"],
-    importpath = "github.com/google/go-jsonnet/c-bindings",
+    importpath = "github.com/y1hao/go-jsonnet/c-bindings",
     visibility = ["//visibility:private"],
     deps = [
         "//:go_default_library",

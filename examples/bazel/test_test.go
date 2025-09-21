@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	gjs "github.com/google/go-jsonnet"
+	gjs "github.com/y1hao/go-jsonnet"
 )
 
 func TestThings(t *testing.T) {

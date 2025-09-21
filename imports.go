@@ -22,8 +22,8 @@ import (
 	"path/filepath"
 	"unsafe"
 
-	"github.com/google/go-jsonnet/ast"
-	"github.com/google/go-jsonnet/internal/program"
+	"github.com/y1hao/go-jsonnet/ast"
+	"github.com/y1hao/go-jsonnet/internal/program"
 )
 
 // An Importer imports data from a path.

@@ -1,4 +1,4 @@
-module github.com/google/go-jsonnet
+module github.com/y1hao/go-jsonnet
 
 go 1.24.0
 
