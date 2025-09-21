@@ -23,8 +23,8 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/google/go-jsonnet/ast"
-	"github.com/google/go-jsonnet/internal/errors"
+	"github.com/y1hao/go-jsonnet/ast"
+	"github.com/y1hao/go-jsonnet/internal/errors"
 )
 
 // StringUnescape compiles out the escape codes in the string

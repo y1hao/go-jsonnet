@@ -19,7 +19,7 @@ package program
 import (
 	"testing"
 
-	"github.com/google/go-jsonnet/ast"
+	"github.com/y1hao/go-jsonnet/ast"
 )
 
 func TestSimpleNull(t *testing.T) {

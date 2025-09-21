@@ -23,8 +23,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/google/go-jsonnet/ast"
-	"github.com/google/go-jsonnet/internal/errors"
+	"github.com/y1hao/go-jsonnet/ast"
+	"github.com/y1hao/go-jsonnet/internal/errors"
 )
 
 // ---------------------------------------------------------------------------

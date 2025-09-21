@@ -4,7 +4,7 @@ load(
 )
 load("@io_bazel_rules_go//go:def.bzl", "go_library", "go_test")
 
-# gazelle:prefix github.com/google/go-jsonnet
+# gazelle:prefix github.com/y1hao/go-jsonnet
 gazelle(
     name = "gazelle",
 )
@@ -26,7 +26,7 @@ go_library(
         "vm.go",
         "yaml.go",
     ],
-    importpath = "github.com/google/go-jsonnet",
+    importpath = "github.com/y1hao/go-jsonnet",
     visibility = ["//visibility:public"],
     deps = [
         "//ast:go_default_library",

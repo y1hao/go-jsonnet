@@ -3,9 +3,9 @@ package types
 import (
 	"fmt"
 
-	"github.com/google/go-jsonnet/ast"
-	"github.com/google/go-jsonnet/internal/parser"
-	"github.com/google/go-jsonnet/linter/internal/common"
+	"github.com/y1hao/go-jsonnet/ast"
+	"github.com/y1hao/go-jsonnet/internal/parser"
+	"github.com/y1hao/go-jsonnet/linter/internal/common"
 )
 
 func checkSubexpr(node ast.Node, typeOf exprTypes, ec *common.ErrCollector) {
