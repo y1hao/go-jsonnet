@@ -1031,6 +1031,10 @@ func (i *interpreter) output(v value, trace map[int]*ast.LocationRange, index in
 	if origin == nil {
 		return
 	}
+	loc := origin.Loc()
+	if loc == nil || loc.FileName == "" {
+		return
+	}
 	trace[index] = origin.Loc()
 }
 
